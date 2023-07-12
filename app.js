@@ -65,14 +65,25 @@ const adminAuthenticationMiddleware = (req,res,next) => {
 //User Authentication Middleware
 
 const userAuthenticationMiddleware = (req, res, next) => {
-    const { username, password } = req.headers;
-    const user = User.find({ username: username, password: password });
-    if (user) {
-        next();
-    }
-    else {
-        res.status(400).json({ message:'Enter the right credentials' });
-    }
+    // const { username, password } = req.headers;
+    // const user = User.find({ username: username, password: password });
+    // if (user) {
+    //     next();
+    // }
+    // else {
+    //     res.status(400).json({ message:'Enter the right credentials' });
+    // }
+
+    const token = req.headers.split(' ')[1];
+    jwt.verify(token, SECRET_KEY_USER, (err, user) => {
+        if (err) {
+            res.status(400).json({ message: 'Enter the right credentials' });
+        }
+        else {
+            req.user = user;
+            next();
+        }
+    })    
 }
 
 
@@ -168,10 +179,34 @@ app.post('/user/signup', (req, res) => {
 
 // User Login route
 
-app.post('/user/login', userAuthenticationMiddleware, (req, res) => {
-    const jwtToken = jwt.sign({ username: req.headers.username, role: 'user' }, SECRET_KEY_USER,{expiresIn:'1h'});
-    res.status(200).json({ message: 'Logged in Succesfully',token: jwtToken });
+app.post('/user/login', (req, res) => {
 
+
+    const { username, password } = req.headers;
+    const user = User.findOne({ username: username, password: password });
+    if (user) {
+        const jwtToken = jwt.sign({ username: req.headers.username, role: 'user' }, SECRET_KEY_USER, { expiresIn: '1h' });
+        res.status(200).json({ message: 'Logged in Succesfully', token: jwtToken });
+    }
+    else {
+        res.status(400).json({ message: '' })
+    }
+});
+
+
+//Users get all Courses route
+
+app.get('/users/courses', userAuthenticationMiddleware, async (req, res) => {
+    const allCourses = await Course.find({});
+    if (allCourses) {
+        res.status(200).json(allCourses);    
+    }
+    else {
+        res.status(404).send({
+            message: 'No courses found'
+        })
+    }
+    
 })
 
 
