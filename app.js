@@ -5,6 +5,7 @@ const bodyparser = require('body-parser');
 const { ADDRCONFIG } = require('dns');
 
 const SECRET_KEY_ADMIN = "AdMiNs3Cr3T";
+const SECRET_KEY_USER = "UsErSs3Cr3T";
 const app = express();
 app.use(bodyparser.json());
 
@@ -30,10 +31,16 @@ const courseSchema = mongoose.Schema({
     published: Boolean
 });
 
+const userSchema = mongoose.Schema({
+    username: String,
+    password: String
+})
+
 //  collection
 
 const Admin = mongoose.model("admins", adminSchema);
 const Course = mongoose.model("courses", courseSchema);
+const User = mongoose.model("users", userSchema);
 
 //Admin authentication middleware
 
@@ -53,6 +60,19 @@ const adminAuthenticationMiddleware = (req,res,next) => {
         res.sendStatus(401);
     }
 
+}
+
+//User Authentication Middleware
+
+const userAuthenticationMiddleware = (req, res, next) => {
+    const { username, password } = req.headers;
+    const user = User.find({ username: username, password: password });
+    if (user) {
+        next();
+    }
+    else {
+        res.status(400).json({ message:'Enter the right credentials' });
+    }
 }
 
 
@@ -107,7 +127,58 @@ app.post('/admin/courses', adminAuthenticationMiddleware, async (req, res) => {
 
 //admin editing a course through spedific url
 
-app.put('/admin/courses/:courseId')
+app.put('/admin/courses/:courseId', adminAuthenticationMiddleware, async (req, res) => {
+    const courseid = req.params.courseId;
+    const courseUpdate = await Course.updateOne({ id: courseid }, { $set: { title: req.body.title, description: req.body.description, price: req.body.price, imageLink: req.body.imageLink, published: true } });
+    if (courseUpdate) {
+        res.json({ message: 'course Updated succesfully' });
+    }
+    else {
+        res.status(400).json({ message: 'course not found' });
+    }
+});
+
+//admin get all courses route
+
+app.get('/admin/courses', adminAuthenticationMiddleware, async (req, res) => {
+    const allCourses = await Course.find({});
+    if (allCourses) {
+        res.status(200).json(allCourses);
+    }
+    else {
+        res.status(404).json({ message: "No courses found" });
+    }
+});
+
+// New User signup route
+app.post('/user/signup', (req, res) => {
+    const { username, password } = req.body;
+    const user = user.find({ username: username });
+    if (user) {
+        res.status(400).json({ message: 'username taken' });
+    }
+    else {
+        const jwtToken = jwt.sign({ username: username, role: 'user' }, SECRET_KEY_USER);
+        const newUser = new User(req.body);
+        newUser.save();
+        res.status(200).json({ message: 'User created successfully', token: jwtToken });
+    }
+    
+});
+
+// User Login route
+
+app.post('/user/login', userAuthenticationMiddleware, (req, res) => {
+    const jwtToken = jwt.sign({ username: req.headers.username, role: 'user' }, SECRET_KEY_USER,{expiresIn:'1h'});
+    res.status(200).json({ message: 'Logged in Succesfully',token: jwtToken });
+
+})
+
+
+
+
+
+
 
 
 
