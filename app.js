@@ -33,7 +33,8 @@ const courseSchema = mongoose.Schema({
 
 const userSchema = mongoose.Schema({
     username: String,
-    password: String
+    password: String,
+    purchasedCourses: [{type: mongoose.Schema.Types.ObjectId, ref: 'Course'}]
 })
 
 //  collection
@@ -207,7 +208,38 @@ app.get('/users/courses', userAuthenticationMiddleware, async (req, res) => {
         })
     }
     
-})
+});
+
+// USer purchsing a course logic
+
+app.post('/users/courses/:courseId', userAuthenticationMiddleware, async (req, res) => {
+    const course = await Course.findById(req.params.courseId);
+    if (course) {
+        const user = await User.findOne({ username: req.params.username });
+        if (user) {
+            user.purchasedCourses.push(course);
+            await user.save();
+            res.json({ message: 'course purchased successfully' });
+        } else {
+            res.status(403).json({ message: 'User not Found' });
+        }
+    }
+}
+);
+
+//get all USER purchased courses route
+
+app.get('/users/purchasedCourses', userAuthenticationMiddleware, async (req, res) => {
+    const user = await User.findOne({ username: req.user.username }).populate('purchasedCourses');
+    if (user) {
+        res.json({ purchasedCourses: user.purchasedCourses || [] });
+    }
+    else {
+        res.send({ message: "user not found" })
+    }
+});
+
+
 
 
 
